@@ -54,12 +54,12 @@ def _get_signals(config_name: str, source: str = "rss") -> list[dict]:
 
 @app.get("/", response_class=HTMLResponse)
 async def config_page(request: Request):
-    return templates.TemplateResponse("config.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="config.html")
 
 
 @app.get("/signals", response_class=HTMLResponse)
 async def signals_page(request: Request):
-    return templates.TemplateResponse("signals.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="signals.html")
 
 
 # ─── API ──────────────────────────────────────────────────────────────────────
