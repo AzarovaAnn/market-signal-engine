@@ -9,7 +9,6 @@ import os
 import uuid
 from pathlib import Path
 
-import anthropic
 import yaml
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -139,17 +138,13 @@ async def activate(signal_id: str, request: Request):
     if not config_name:
         return JSONResponse({"error": "config_name required"}, status_code=400)
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return JSONResponse({"error": "ANTHROPIC_API_KEY not set"}, status_code=500)
-
     signals = _get_signals(config_name)
     signal = next((s for s in signals if s["id"] == signal_id), None)
     if not signal:
         return JSONResponse({"error": "Signal not found"}, status_code=404)
 
     config = load_config(str(_config_dir() / f"{config_name}.yaml"))
-    client = anthropic.Anthropic()
-    activate_signal(signal, config, client)
+    activate_signal(signal, config)
 
     _activation_cache[signal_id] = signal.get("activation", {})
     return signal.get("activation", {})

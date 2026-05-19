@@ -2,7 +2,7 @@
 Market Signal Engine — RSS-based Capture Module (Layer 2)
 
 Fetches real articles from RSS feeds (Google News by salon theme, tech press),
-classifies them with Claude Haiku, and outputs signals matching the existing schema.
+classifies them with an LLM, and outputs signals matching the existing schema.
 """
 
 import hashlib
@@ -15,8 +15,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import anthropic
 import feedparser
+
+from llm import chat
 
 # ─── Feed Sources ─────────────────────────────────────────────────────────────
 
@@ -69,11 +70,7 @@ Exemple : ["requête 1", "requête 2", "requête 3"]"""
 
 
 def generate_queries_with_llm(config: dict, max_queries: int = 30) -> list[str]:
-    """Use Claude to generate search queries based on salon config."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("  ⚠️  ANTHROPIC_API_KEY not set — cannot generate queries")
-        return []
-
+    """Use LLM to generate search queries based on salon config."""
     salon = config["salon"]
     signal_types = config.get("signal_types", [])
     types_desc = "\n".join(f"- {st['id']}: {st['label']} — {st['description']}" for st in signal_types)
@@ -89,14 +86,12 @@ TYPES DE SIGNAUX À DÉTECTER :
 
 Génère {max_queries} requêtes Google News pour découvrir des articles pertinents sur des entreprises liées à ce salon."""
 
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1000,
+    text = chat(
         system=QUERY_GEN_PROMPT.format(max_queries=max_queries),
-        messages=[{"role": "user", "content": user_prompt}],
+        user=user_prompt,
+        task="classify",
+        max_tokens=1000,
     )
-    text = response.content[0].text
 
     try:
         queries = json.loads(text)
@@ -246,20 +241,19 @@ Si l'article n'est PAS pertinent (ne concerne aucune entreprise ou aucun type de
 {{"relevant": false}}"""
 
 
-def classify_article(article: dict, config: dict, client: anthropic.Anthropic, limiter: RateLimiter | None = None) -> dict | None:
-    """Classify a single article using Claude Haiku. Returns a signal dict or None."""
+def classify_article(article: dict, config: dict, limiter: RateLimiter | None = None) -> dict | None:
+    """Classify a single article using LLM. Returns a signal dict or None."""
     prompt = _build_classification_prompt(article, config)
 
     try:
         if limiter:
             limiter.wait()
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=500,
+        text = chat(
             system=CLASSIFICATION_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            user=prompt,
+            task="classify",
+            max_tokens=500,
         )
-        text = response.content[0].text
 
         # Parse JSON from response
         result = None
@@ -340,11 +334,6 @@ def fetch_and_classify(config: dict) -> list[dict]:
     articles = fetch_all_feeds(config, queries=queries)
     print(f"  📰 Fetched {len(articles)} articles")
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("  ⚠️  ANTHROPIC_API_KEY not set — cannot classify")
-        return []
-
-    client = anthropic.Anthropic()
     signals = []
 
     # Deduplicate articles by title hash before classifying
@@ -358,11 +347,13 @@ def fetch_and_classify(config: dict) -> list[dict]:
 
     limiter = RateLimiter(MAX_REQUESTS_PER_MINUTE)
     max_workers = min(10, len(unique_articles))
-    print(f"  🔍 Classifying {len(unique_articles)} unique articles with Claude Haiku ({max_workers} threads, {MAX_REQUESTS_PER_MINUTE} rpm)...")
+    from llm import get_model
+    model_name = get_model("classify")
+    print(f"  🔍 Classifying {len(unique_articles)} unique articles with {model_name} ({max_workers} threads, {MAX_REQUESTS_PER_MINUTE} rpm)...")
 
     def _classify(idx_article):
         i, article = idx_article
-        return i, classify_article(article, config, client, limiter)
+        return i, classify_article(article, config, limiter)
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(_classify, (i, a)): i for i, a in enumerate(unique_articles)}

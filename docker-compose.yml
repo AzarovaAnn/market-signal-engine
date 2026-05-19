@@ -3,7 +3,13 @@ services:
     build: .
     command: python fetch_signals.py
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_CLASSIFY_MODEL=${LLM_CLASSIFY_MODEL:-}
+      - LLM_ACTIVATE_MODEL=${LLM_ACTIVATE_MODEL:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
     volumes:
       - signal-data:/app/data
 
@@ -13,7 +19,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_CLASSIFY_MODEL=${LLM_CLASSIFY_MODEL:-}
+      - LLM_ACTIVATE_MODEL=${LLM_ACTIVATE_MODEL:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
     volumes:
       - signal-data:/app/data
 

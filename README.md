@@ -1,6 +1,8 @@
 # Market Signal Engine
 
-Market intelligence tool for trade show organizers. Automatically discovers companies and business signals relevant to a salon by scanning news sources, classifying articles with Claude Haiku, scoring them, and generating actionable recommendations for three personas (Sales, Show Director, Marketing).
+Market intelligence tool for trade show organizers. Automatically discovers companies and business signals relevant to a salon by scanning news sources, classifying articles with an LLM, scoring them, and generating actionable recommendations for three personas (Sales, Show Director, Marketing).
+
+Works with any LLM provider: Anthropic, OpenAI, Google Gemini, Mistral, and [many more](https://docs.litellm.ai/docs/providers) via [LiteLLM](https://github.com/BerriAI/litellm).
 
 ## How It Works
 
@@ -14,7 +16,7 @@ YAML Config (salon themes, signal types, personas)
    RSS Fetch (Google News + L'Usine Digitale, Maddyness, TechCrunch, ...)
         │
         ▼
-   Claude Haiku classifies each article:
+   LLM classifies each article:
      → extracts company name & sector
      → scores company-salon fit (0-10)
      → determines signal type
@@ -33,19 +35,23 @@ No hardcoded target companies — everything is discovered from news based on th
 ### Prerequisites
 
 - Docker and Docker Compose
-- An [Anthropic API key](https://console.anthropic.com/)
+- An API key for your chosen LLM provider (see [Choosing an LLM Provider](#choosing-an-llm-provider))
 
 ### Step 1: Fetch and classify signals
 
 ```bash
+# Set your provider's API key (Anthropic, OpenAI, Gemini, Mistral, etc.)
 export ANTHROPIC_API_KEY=sk-ant-...
+# Optionally override the default model:
+# export LLM_MODEL=openai/gpt-4o-mini
+
 docker compose run --rm fetch
 ```
 
 This will:
-1. Ask Claude to generate ~30 search queries tailored to each salon's themes
+1. Ask the LLM to generate ~30 search queries tailored to each salon's themes
 2. Fetch articles from Google News RSS + tech press feeds
-3. Classify each article with Claude Haiku (10 threads, rate-limited at 40 rpm)
+3. Classify each article with the LLM (10 threads, rate-limited at 40 rpm)
 4. Cache results to disk incrementally (safe to Ctrl+C)
 
 ### Step 2: Start the dashboard
@@ -59,7 +65,7 @@ Open **http://localhost:8000**. Select a salon to see scored signals, filter by 
 ### Both steps together
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=sk-ant-...  # or OPENAI_API_KEY, GEMINI_API_KEY, etc.
 docker compose run --rm fetch && docker compose up web
 ```
 
@@ -73,11 +79,75 @@ docker compose run --rm fetch
 
 Or hit the refresh button in the dashboard (clears the cache, but you still need to re-run fetch to repopulate it).
 
+## Choosing an LLM Provider
+
+The engine uses [LiteLLM](https://docs.litellm.ai/docs/providers) under the hood, so it works with any supported provider. Set the appropriate API key and model via environment variables.
+
+### Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `LLM_MODEL` | Model for all LLM tasks | `anthropic/claude-haiku-4-5-20251001` |
+| `LLM_CLASSIFY_MODEL` | Override model for query generation + article classification | Falls back to `LLM_MODEL` |
+| `LLM_ACTIVATE_MODEL` | Override model for activation generation | Falls back to `LLM_MODEL` |
+
+### Provider Examples
+
+**Anthropic (default)**
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+python fetch_signals.py
+```
+
+**OpenAI**
+```bash
+export OPENAI_API_KEY=sk-...
+export LLM_MODEL=openai/gpt-4o-mini
+python fetch_signals.py
+```
+
+**Google Gemini**
+```bash
+export GEMINI_API_KEY=...
+export LLM_MODEL=gemini/gemini-2.0-flash
+python fetch_signals.py
+```
+
+**Mistral**
+```bash
+export MISTRAL_API_KEY=...
+export LLM_MODEL=mistral/mistral-small-latest
+python fetch_signals.py
+```
+
+**Mix providers per task** — use a cheap model for classification and a stronger one for activations:
+```bash
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+export LLM_CLASSIFY_MODEL=openai/gpt-4o-mini
+export LLM_ACTIVATE_MODEL=anthropic/claude-sonnet-4-20250514
+```
+
+Model identifiers follow [LiteLLM conventions](https://docs.litellm.ai/docs/providers): `provider/model-name`.
+
+### With Docker
+
+All `LLM_*` and API key variables are forwarded automatically by `docker-compose.yml`:
+
+```bash
+export LLM_MODEL=openai/gpt-4o-mini
+export OPENAI_API_KEY=sk-...
+docker compose run --rm fetch
+docker compose up web
+```
+
 ## Running without Docker
 
 ```bash
 pip install -r requirements.txt
+
 export ANTHROPIC_API_KEY=sk-ant-...
+# Or: export OPENAI_API_KEY=sk-... && export LLM_MODEL=openai/gpt-4o-mini
 
 # Fetch signals for all salons (or specify one: python fetch_signals.py bdaip_2026)
 python fetch_signals.py
@@ -96,6 +166,7 @@ python app.py
 ├── capture/
 │   ├── rss_signals.py           # RSS fetching + LLM classification
 │   └── fake_signals.py          # Synthetic signal generator (demo, no API key needed)
+├── llm.py                       # Provider-agnostic LLM wrapper (LiteLLM)
 ├── engine.py                    # Scoring + LLM activation pipeline
 ├── fetch_signals.py             # CLI entry point for signal fetching
 ├── app.py                       # FastAPI web server

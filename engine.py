@@ -16,9 +16,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import anthropic
-
 from capture.rss_signals import generate_signals
+from llm import chat
 
 
 # ─── Layer 1: Config ───────────────────────────────────────────────────────────
@@ -150,18 +149,16 @@ PERSONAS :
 Sois SPÉCIFIQUE : mentionne le nom de l'entreprise, les personnes, les produits. Pas de placeholders."""
 
 
-def activate_signal(signal: dict, config: dict, client: anthropic.Anthropic) -> dict:
-    """Call Claude to generate activation outputs for a single signal."""
+def activate_signal(signal: dict, config: dict) -> dict:
+    """Call LLM to generate activation outputs for a single signal."""
     prompt = build_activation_prompt(signal, config)
 
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=4000,
+    text = chat(
         system=ACTIVATION_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
+        user=prompt,
+        task="activate",
+        max_tokens=4000,
     )
-
-    text = response.content[0].text
 
     # Extract JSON — try multiple strategies
     activation = None
@@ -223,16 +220,13 @@ def run_pipeline(config_path: str, activate: bool = True) -> list[dict]:
     warm = sum(1 for s in scored if "WARM" in s.get("priority", ""))
     print(f"  📊 Scored: {hot} HOT, {warm} WARM, {len(scored)-hot-warm} COLD")
 
-    # Layer 5: Activate (optional, requires API key)
-    if activate and os.environ.get("ANTHROPIC_API_KEY"):
-        client = anthropic.Anthropic()
+    # Activate (optional)
+    if activate:
         for i, sig in enumerate(scored):
             if "HOT" in sig.get("priority", "") or "WARM" in sig.get("priority", ""):
                 print(f"  🤖 Activating [{i+1}/{len(scored)}] {sig['company']} — {sig['signal_meta'].get('label', sig['signal_type'])}")
-                activate_signal(sig, config, client)
+                activate_signal(sig, config)
         print(f"  ✅ Activation complete")
-    elif activate:
-        print(f"  ⚠️  Set ANTHROPIC_API_KEY to enable LLM activation")
 
     return scored
 
