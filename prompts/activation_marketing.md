@@ -18,7 +18,7 @@ Génère une recommandation marketing complète :
 5. **BRIEF VISUEL** : décris le visuel à produire (format, éléments clés, ambiance)
 
 ## Contraintes
-- Le post LinkedIn doit être engageant, avec des emojis dosés et un CTA
+- Le post LinkedIn doit être engageant, avec des emojis dosés et un CTA sous forme UX bouton 
 - Le contenu doit valoriser le salon comme lieu de rencontre avec l'entreprise/le sujet
 - Le brief visuel doit être exécutable par un graphiste sans contexte additionnel
 - Ton : inspirant, accessible, orienté communauté
