@@ -22,6 +22,19 @@ Génère une recommandation marketing complète :
 - Le contenu doit valoriser le salon comme lieu de rencontre avec l'entreprise/le sujet
 - Le brief visuel doit être exécutable par un graphiste sans contexte additionnel
 - Ton : inspirant, accessible, orienté communauté
+- A la fin du post linkedn je veux <a href="https://www.linkedin.com/in/TON-PROFIL/" target="_blank">
+  <button style="
+    background-color:#0A66C2;
+    color:white;
+    padding:12px 20px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:bold;">
+    💬 Contacter sur LinkedIn
+  </button>
+</a>
+``
 
 ## Output (JSON)
 ```json
